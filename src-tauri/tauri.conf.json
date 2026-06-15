@@ -1,0 +1,30 @@
+{
+  "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
+  "productName": "SimpleDB",
+  "version": "0.1.0",
+  "identifier": "com.simpledb.desktop",
+  "build": {
+    "frontendDist": "../client/dist",
+    "beforeDevCommand": "npm run build && bash scripts/prepare-tauri.sh",
+    "beforeBuildCommand": "npm run build && bash scripts/prepare-tauri.sh"
+  },
+  "app": {
+    "windows": [],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["app"],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "externalBin": ["binaries/node"],
+    "resources": ["resources/**/*"]
+  }
+}

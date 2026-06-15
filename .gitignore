@@ -1,0 +1,14 @@
+node_modules/
+dist/
+.DS_Store
+*.log
+.env
+app-icon*.png
+simpledb-icon*.png
+
+# Tauri
+src-tauri/target/
+src-tauri/src-tauri/
+src-tauri/binaries/
+src-tauri/resources/
+src-tauri/gen/
