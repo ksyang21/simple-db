@@ -1,8 +1,7 @@
-import { useState } from "react";
 import { Play, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { AutocompleteField } from "@/components/AutocompleteField";
 
 export type QueryMode = "filter" | "sql";
 
@@ -12,6 +11,15 @@ interface QueryBarProps {
   onRun: (mode: QueryMode, value: string) => void;
   loading: boolean;
   disabled: boolean;
+  filter: string;
+  sql: string;
+  onFilterChange: (value: string) => void;
+  onSqlChange: (value: string) => void;
+  selectedDatabase: string;
+  tables: string[];
+  columns: string[];
+  tableColumns: Record<string, string[]>;
+  onRequestTableColumns: (table: string) => void;
 }
 
 export function QueryBar({
@@ -20,19 +28,29 @@ export function QueryBar({
   onRun,
   loading,
   disabled,
+  filter,
+  sql,
+  onFilterChange,
+  onSqlChange,
+  selectedDatabase,
+  tables,
+  columns,
+  tableColumns,
+  onRequestTableColumns,
 }: QueryBarProps) {
-  const [filter, setFilter] = useState("");
-  const [sql, setSql] = useState("");
-
   function handleRun() {
     onRun(mode, mode === "filter" ? filter : sql);
   }
 
-  function handleKeyDown(e: React.KeyboardEvent) {
+  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) {
     if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
       handleRun();
     }
   }
+
+  const databaseHint = selectedDatabase
+    ? `Queries use database \`${selectedDatabase}\` unless you qualify with another name (e.g. other_db.table).`
+    : "Select a database first.";
 
   return (
     <div className="border-b p-4">
@@ -48,30 +66,38 @@ export function QueryBar({
           </Button>
         </div>
         <TabsContent value="filter" className="mt-3">
-          <Input
+          <AutocompleteField
+            mode="filter"
             value={filter}
-            onChange={(e) => setFilter(e.target.value)}
+            onChange={onFilterChange}
             onKeyDown={handleKeyDown}
+            tables={tables}
+            columns={columns}
+            tableColumns={tableColumns}
             placeholder="WHERE clause, e.g. status = 'active' AND id > 100"
             disabled={disabled}
-            className="font-mono text-sm"
           />
           <p className="mt-1.5 text-xs text-muted-foreground">
-            Enter a WHERE clause fragment. Press ⌘+Enter to run.
+            Enter a WHERE clause fragment. Tab/↑↓ to autocomplete columns. Press ⌘+Enter to run.
           </p>
         </TabsContent>
         <TabsContent value="sql" className="mt-3">
-          <textarea
+          <AutocompleteField
+            mode="sql"
             value={sql}
-            onChange={(e) => setSql(e.target.value)}
+            onChange={onSqlChange}
             onKeyDown={handleKeyDown}
-            placeholder="SELECT * FROM users WHERE status = 'active'"
-            disabled={false}
+            tables={tables}
+            columns={columns}
+            tableColumns={tableColumns}
+            onRequestTableColumns={onRequestTableColumns}
+            multiline
             rows={3}
-            className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 font-mono text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+            placeholder="SELECT * FROM users WHERE status = 'active'"
+            disabled={!selectedDatabase}
           />
           <p className="mt-1.5 text-xs text-muted-foreground">
-            Read-only SELECT queries only. Press ⌘+Enter to run.
+            {databaseHint} Tab/↑↓ to autocomplete tables and columns. Press ⌘+Enter to run.
           </p>
         </TabsContent>
       </Tabs>

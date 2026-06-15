@@ -23,8 +23,9 @@ If you reach for TablePlus or Sequel Ace for everything, you probably don't need
 - Column sorting — click headers for server-side `ORDER BY`
 - **Data / Columns toggle** — switch between row data and schema view (`DESCRIBE`-style)
 - **Inline cell editing** — double-click a cell to edit; requires a primary key on the table
-- Filter rows with a WHERE clause fragment
-- Run read-only SELECT queries in SQL mode
+- Filter rows with a WHERE clause fragment — **autocomplete for column names**
+- Run read-only SELECT queries in SQL mode — **uses the selected database by default**; qualify with `other_db.table` for cross-database queries
+- **Autocomplete** in Filter and SQL — tables after `FROM`/`JOIN`, columns elsewhere; Tab/↑↓ to pick
 - Dark theme UI built with Tailwind CSS and shadcn/ui
 - **Web mode** — run in the browser for development or always-on use
 - **Desktop app (macOS)** — native `.app` with embedded server, no separate terminal
@@ -89,7 +90,14 @@ npm run build:app
 
 Output: `src-tauri/target/release/bundle/macos/SimpleDB.app`
 
-Drag **SimpleDB.app** to **Applications**, then launch from the dock. The app embeds its own Node server on port **38472** (won't conflict with tools on 8080 or 5173).
+Drag **SimpleDB.app** to **Applications** (replace the existing copy if updating), then launch from the dock. The app embeds its own Node server on port **38472** (won't conflict with tools on 8080 or 5173).
+
+To rebuild after code changes:
+
+```bash
+npm run build:app
+cp -R src-tauri/target/release/bundle/macos/SimpleDB.app /Applications/
+```
 
 On first launch, macOS may block the unsigned app — right-click → **Open**, or allow it in **System Settings → Privacy & Security**.
 
@@ -107,6 +115,9 @@ npm run dev:app
 4. Use **Data** / **Columns** to switch between rows and schema
 5. Click column headers to sort; double-click a cell to edit (tables with a primary key only)
 6. Use the **Filter** tab for a WHERE clause, or the **SQL** tab for a SELECT query
+   - **Filter** — autocomplete suggests columns from the selected table
+   - **SQL** — queries run against the selected database automatically (`SELECT * FROM users` works without a database prefix). Use `other_db.table` to query another database
+   - **Autocomplete** — type in Filter or SQL; use **Tab** or **↑/↓** + **Enter** to insert table/column names
 7. Click **Run** (or press ⌘+Enter) to apply filters
 
 ## Security

@@ -39,6 +39,7 @@ export default function App() {
   const [queryMode, setQueryMode] = useState<QueryMode>("filter");
   const [filter, setFilter] = useState("");
   const [sql, setSql] = useState("");
+  const [tableColumnsCache, setTableColumnsCache] = useState<Record<string, string[]>>({});
   const [sortColumn, setSortColumn] = useState<string | null>(null);
   const [sortOrder, setSortOrder] = useState<SortOrder | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -70,6 +71,10 @@ export default function App() {
     try {
       const result = await fetchTableSchema(database, table);
       setSchema(result);
+      setTableColumnsCache((prev) => ({
+        ...prev,
+        [table]: result.columns.map((col) => col.field),
+      }));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load schema");
       setSchema(null);
@@ -97,7 +102,7 @@ export default function App() {
       try {
         let result: TableDataResult;
         if (mode === "sql") {
-          result = await runQuery(currentSql, currentPage, currentLimit, currentSort);
+          result = await runQuery(currentSql, database, currentPage, currentLimit, currentSort);
         } else {
           result = await fetchTableData(
             database,
@@ -119,6 +124,27 @@ export default function App() {
     []
   );
 
+  const requestTableColumns = useCallback(
+    async (table: string) => {
+      if (!selectedDatabase) return;
+      try {
+        const result = await fetchTableSchema(selectedDatabase, table);
+        const fields = result.columns.map((col) => col.field);
+        setTableColumnsCache((prev) =>
+          prev[table] ? prev : { ...prev, [table]: fields }
+        );
+      } catch {
+        // Ignore schema lookup failures during autocomplete.
+      }
+    },
+    [selectedDatabase]
+  );
+
+  const activeColumns =
+    schema?.columns.map((col) => col.field) ??
+    (selectedTable ? tableColumnsCache[selectedTable] : undefined) ??
+    [];
+
   function handleConnected(dbs: string[]) {
     setDatabases(dbs);
     setConnected(true);
@@ -139,6 +165,7 @@ export default function App() {
     setViewMode("data");
     setFilter("");
     setSql("");
+    setTableColumnsCache({});
     setSortColumn(null);
     setSortOrder(null);
     setPage(1);
@@ -152,6 +179,7 @@ export default function App() {
     setSchema(null);
     setPage(1);
     setFilter("");
+    setTableColumnsCache({});
     setSortColumn(null);
     setSortOrder(null);
     setViewMode("data");
@@ -325,7 +353,18 @@ export default function App() {
             }}
             onRun={handleRun}
             loading={loadingData}
-            disabled={queryMode === "filter" && !selectedTable}
+            disabled={
+              !selectedDatabase || (queryMode === "filter" && !selectedTable)
+            }
+            filter={filter}
+            sql={sql}
+            onFilterChange={setFilter}
+            onSqlChange={setSql}
+            selectedDatabase={selectedDatabase}
+            tables={tables}
+            columns={activeColumns}
+            tableColumns={tableColumnsCache}
+            onRequestTableColumns={requestTableColumns}
           />
           <ViewToolbar
             mode={viewMode}

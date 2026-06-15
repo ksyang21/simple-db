@@ -121,6 +121,7 @@ export async function fetchTableData(
 
 export async function runQuery(
   sql: string,
+  database: string,
   page: number,
   limit: number,
   sort?: SortState
@@ -129,6 +130,7 @@ export async function runQuery(
     method: "POST",
     body: JSON.stringify({
       sql,
+      database,
       page,
       limit,
       sort: sort?.column ?? undefined,

@@ -4,8 +4,8 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import type { RowDataPacket } from "mysql2/promise";
-import { connect, disconnect, escapeId, getPool, isConnected } from "./db.js";
+import type { PoolConnection, RowDataPacket } from "mysql2/promise";
+import { connect, disconnect, escapeId, getPool, isConnected, validateDatabaseName, withDatabaseConnection } from "./db.js";
 import {
   clampLimit,
   clampPage,
@@ -192,6 +192,7 @@ app.post("/api/query", async (c) => {
   try {
     const body = await c.req.json<{
       sql?: string;
+      database?: string;
       page?: number;
       limit?: number;
       sort?: string;
@@ -202,35 +203,43 @@ app.post("/api/query", async (c) => {
     const limit = clampLimit(body.limit ?? 50);
     const offset = (page - 1) * limit;
     const sortParam = body.sort?.trim() ?? "";
+    const defaultDatabase = body.database?.trim()
+      ? validateDatabaseName(body.database)
+      : undefined;
 
     validateSelectSql(sql);
 
-    const pool = getPool();
-    const countSql = `SELECT COUNT(*) AS total FROM (${sql}) AS _q`;
-    const [countRows] = await pool.query<RowDataPacket[]>(countSql);
-    const total = Number(countRows[0]?.total ?? 0);
+    const runQuery = async (connection: PoolConnection) => {
+      const countSql = `SELECT COUNT(*) AS total FROM (${sql}) AS _q`;
+      const [countRows] = await connection.query<RowDataPacket[]>(countSql);
+      const total = Number(countRows[0]?.total ?? 0);
 
-    let dataSql = `SELECT * FROM (${sql}) AS _q`;
-    if (sortParam) {
-      const sortColumn = validateSortColumnName(sortParam);
-      const sortOrder = parseSortOrder(body.order);
-      dataSql += ` ORDER BY ${escapeId(sortColumn)} ${sortOrder}`;
-    }
-    dataSql += " LIMIT ? OFFSET ?";
-    const [rows] = await pool.query<RowDataPacket[]>(dataSql, [limit, offset]);
+      let dataSql = `SELECT * FROM (${sql}) AS _q`;
+      if (sortParam) {
+        const sortColumn = validateSortColumnName(sortParam);
+        const sortOrder = parseSortOrder(body.order);
+        dataSql += ` ORDER BY ${escapeId(sortColumn)} ${sortOrder}`;
+      }
+      dataSql += " LIMIT ? OFFSET ?";
+      const [rows] = await connection.query<RowDataPacket[]>(dataSql, [limit, offset]);
 
-    const columns = rows.length > 0 ? Object.keys(rows[0]) : [];
+      const columns = rows.length > 0 ? Object.keys(rows[0]) : [];
 
-    return c.json({
-      columns,
-      rows: rows.map((row) => serializeRow(row as Record<string, unknown>)),
-      total,
-      page,
-      limit,
-      totalPages: Math.max(1, Math.ceil(total / limit)),
-      sort: sortParam || null,
-      order: sortParam ? (body.order?.toLowerCase() === "desc" ? "desc" : "asc") : null,
-    });
+      return {
+        columns,
+        rows: rows.map((row) => serializeRow(row as Record<string, unknown>)),
+        total,
+        page,
+        limit,
+        totalPages: Math.max(1, Math.ceil(total / limit)),
+        sort: sortParam || null,
+        order: sortParam ? (body.order?.toLowerCase() === "desc" ? "desc" : "asc") : null,
+      };
+    };
+
+    const result = await withDatabaseConnection(defaultDatabase, runQuery);
+
+    return c.json(result);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Query failed";
     return c.json({ error: message }, 400);
